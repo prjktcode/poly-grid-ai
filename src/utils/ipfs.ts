@@ -1,6 +1,7 @@
 import { create } from 'ipfs-http-client';
 
 // IPFS client configuration
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let ipfsClient: any = null;
 
 /**
