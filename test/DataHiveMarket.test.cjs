@@ -43,11 +43,13 @@ describe("DataHiveMarket", function () {
 
   describe("Listing Items", function () {
     it("Should list an item successfully", async function () {
-      await expect(
-        dataHiveMarket.connect(seller).listItem(CONTENT_CID, ITEM_PRICE, MODEL_TYPE)
-      )
+      const tx = await dataHiveMarket.connect(seller).listItem(CONTENT_CID, ITEM_PRICE, MODEL_TYPE);
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt.blockNumber);
+      
+      await expect(tx)
         .to.emit(dataHiveMarket, "ItemListed")
-        .withArgs(1, seller.address, CONTENT_CID, ITEM_PRICE, MODEL_TYPE, await getTimestamp());
+        .withArgs(1, seller.address, CONTENT_CID, ITEM_PRICE, MODEL_TYPE, block.timestamp);
 
       expect(await dataHiveMarket.listingCount()).to.equal(1);
     });
@@ -110,11 +112,13 @@ describe("DataHiveMarket", function () {
       const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
       const feeRecipientBalanceBefore = await ethers.provider.getBalance(owner.address);
 
-      await expect(
-        dataHiveMarket.connect(buyer).buyItem(1, { value: ITEM_PRICE })
-      )
+      const tx = await dataHiveMarket.connect(buyer).buyItem(1, { value: ITEM_PRICE });
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt.blockNumber);
+
+      await expect(tx)
         .to.emit(dataHiveMarket, "ItemPurchased")
-        .withArgs(1, buyer.address, seller.address, ITEM_PRICE, await getTimestamp());
+        .withArgs(1, buyer.address, seller.address, ITEM_PRICE, block.timestamp);
 
       const sellerBalanceAfter = await ethers.provider.getBalance(seller.address);
       const feeRecipientBalanceAfter = await ethers.provider.getBalance(owner.address);
@@ -185,20 +189,21 @@ describe("DataHiveMarket", function () {
     });
 
     it("Should allow seller to deactivate their listing", async function () {
-      await expect(
-        dataHiveMarket.connect(seller).deactivateListing(1)
-      )
+      const tx = await dataHiveMarket.connect(seller).deactivateListing(1);
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt.blockNumber);
+
+      await expect(tx)
         .to.emit(dataHiveMarket, "ListingDeactivated")
-        .withArgs(1, seller.address, await getTimestamp());
+        .withArgs(1, seller.address, block.timestamp);
 
       const listing = await dataHiveMarket.getListing(1);
       expect(listing.active).to.equal(false);
     });
 
     it("Should allow owner to deactivate any listing", async function () {
-      await expect(
-        dataHiveMarket.connect(owner).deactivateListing(1)
-      )
+      const tx = await dataHiveMarket.connect(owner).deactivateListing(1);
+      await expect(tx)
         .to.emit(dataHiveMarket, "ListingDeactivated");
 
       const listing = await dataHiveMarket.getListing(1);
@@ -223,12 +228,13 @@ describe("DataHiveMarket", function () {
   describe("Platform Fee Management", function () {
     it("Should allow owner to update platform fee", async function () {
       const newFee = 500; // 5%
+      const tx = await dataHiveMarket.connect(owner).updatePlatformFee(newFee);
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt.blockNumber);
       
-      await expect(
-        dataHiveMarket.connect(owner).updatePlatformFee(newFee)
-      )
+      await expect(tx)
         .to.emit(dataHiveMarket, "PlatformFeeUpdated")
-        .withArgs(250, newFee, await getTimestamp());
+        .withArgs(250, newFee, block.timestamp);
 
       expect(await dataHiveMarket.platformFee()).to.equal(newFee);
     });
@@ -282,10 +288,4 @@ describe("DataHiveMarket", function () {
     });
   });
 
-  // Helper function to get approximate timestamp
-  async function getTimestamp() {
-    const blockNumber = await ethers.provider.getBlockNumber();
-    const block = await ethers.provider.getBlock(blockNumber);
-    return block.timestamp;
-  }
 });
