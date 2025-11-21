@@ -1,7 +1,8 @@
-// Contract configuration for DataHiveMarket
+﻿// Contract configuration for DataHiveMarket
 // Update the CONTRACT_ADDRESS after deployment
 
-export const CONTRACT_ADDRESS = process.env.VITE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+export const CONTRACT_ADDRESS =
+    import.meta.env.VITE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
 
 // Polygon Amoy testnet configuration
 export const POLYGON_AMOY = {

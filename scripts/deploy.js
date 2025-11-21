@@ -1,7 +1,13 @@
-import hre from 'hardhat';
+﻿import hre from 'hardhat';
+
 
 async function main() {
-  console.log("Deploying DataHiveMarket contract...");
+    console.log("Deploying DataHiveMarket contract...");
+
+    // Debug: show network and signers
+    console.log("Network:", hre.network.name);
+    const signers = await hre.ethers.getSigners();
+    console.log("Signers:", signers.map((s) => s.address));
 
   // Get the contract factory
   const DataHiveMarket = await hre.ethers.getContractFactory("DataHiveMarket");

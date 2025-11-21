@@ -1,3 +1,4 @@
+﻿require('dotenv').config();
 require("@nomicfoundation/hardhat-toolbox");
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -23,9 +24,9 @@ module.exports = {
     },
     // Sepolia Testnet (backup option)
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
+        url: process.env.SEPOLIA_RPC_URL || "https://unichain-sepolia.drpc.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 11155111,
+      chainId: 1301,
     },
   },
   paths: {
