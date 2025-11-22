@@ -9,6 +9,6 @@
     "\\src\\utils",
     "\\test"
   ],
-  "SelectedNode": "\\test\\DataHiveMarket.test.cjs",
+  "SelectedNode": "\\contracts\\DataHiveMarket.sol",
   "PreviewInSolutionExplorer": false
 }

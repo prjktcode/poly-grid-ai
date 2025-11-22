@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -11,7 +12,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract DataHiveMarket is Ownable, ReentrancyGuard {
     
     struct Listing {
-        bytes32 contentCID;      // IPFS content identifier
+        string contentCID;      // IPFS content identifier
         uint256 price;           // Price in wei
         address payable seller;  // Seller's address
         uint8 itemType;          // 0 = model, 1 = dataset
@@ -35,7 +36,7 @@ contract DataHiveMarket is Ownable, ReentrancyGuard {
     event ItemListed(
         uint256 indexed listingId,
         address indexed seller,
-        bytes32 contentCID,
+        string contentCID,
         uint256 price,
         uint8 itemType,
         uint256 timestamp
@@ -70,12 +71,12 @@ contract DataHiveMarket is Ownable, ReentrancyGuard {
 
     /**
      * @dev List a new item on the marketplace
-     * @param _contentCID IPFS content identifier
+     * @param contentCID IPFS content identifier
      * @param _price Price in wei
      * @param _itemType Type of item (0 = model, 1 = dataset)
      */
     function listItem(
-        bytes32 _contentCID,
+        string calldata contentCID,
         uint256 _price,
         uint8 _itemType
     ) external {
@@ -85,7 +86,7 @@ contract DataHiveMarket is Ownable, ReentrancyGuard {
         listingCount++;
         
         listings[listingCount] = Listing({
-            contentCID: _contentCID,
+            contentCID: contentCID,
             price: _price,
             seller: payable(msg.sender),
             itemType: _itemType,
@@ -96,7 +97,7 @@ contract DataHiveMarket is Ownable, ReentrancyGuard {
         emit ItemListed(
             listingCount,
             msg.sender,
-            _contentCID,
+            contentCID,
             _price,
             _itemType,
             block.timestamp
@@ -192,7 +193,7 @@ contract DataHiveMarket is Ownable, ReentrancyGuard {
      * @param _listingId ID of the listing
      */
     function getListing(uint256 _listingId) external view returns (
-        bytes32 contentCID,
+        string memory contentCID,
         uint256 price,
         address seller,
         uint8 itemType,

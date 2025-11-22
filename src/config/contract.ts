@@ -2,7 +2,7 @@
 // Update the CONTRACT_ADDRESS after deployment
 
 export const CONTRACT_ADDRESS =
-    import.meta.env.VITE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+    import.meta.env.VITE_CONTRACT_ADDRESS || "0x7Cc5aE2b7A27D77dE0Cd9fFD9769b255830DE804";
 
 // Polygon Amoy testnet configuration
 export const POLYGON_AMOY = {
@@ -55,9 +55,9 @@ export const CONTRACT_ABI = [
       },
       {
         "indexed": false,
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "contentCID",
-        "type": "bytes32"
+        "type": "string"
       },
       {
         "indexed": false,
@@ -146,9 +146,9 @@ export const CONTRACT_ABI = [
   {
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "_contentCID",
-        "type": "bytes32"
+        "internalType": "string",
+        "name": "contentCID",
+        "type": "string"
       },
       {
         "internalType": "uint256",
@@ -203,9 +203,9 @@ export const CONTRACT_ABI = [
     "name": "getListing",
     "outputs": [
       {
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "contentCID",
-        "type": "bytes32"
+        "type": "string"
       },
       {
         "internalType": "uint256",

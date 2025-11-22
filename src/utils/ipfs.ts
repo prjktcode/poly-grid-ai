@@ -79,8 +79,6 @@ export const pinToIPFS = async (cid: string): Promise<void> => {
     }
 }
 
-// --- Pinata upload helper ---
-
 /**
  * Upload a File to Pinata's uploads API.
  * Returns the CID string from Pinata.
@@ -133,27 +131,20 @@ export const buildGatewayUrlFromCid = (cid: string): string => {
 }
 
 /**
- * Convert string to bytes32 for smart contract (browser-compatible using viem)
+ * Convert a CID string into a bytes32 that Solidity accepts.
+ * We:
+ *  - encode the CID as UTF-8 to hex
+ *  - left-pad/truncate to 32 bytes
+ *
+ * NOTE: This is NOT reversible for arbitrary long CIDs. It is a handle, not a full CID.
  */
-//export const stringToBytes32 = (str: string): `0x${string}` => {
-    // Use viem's utilities for browser-compatible conversion
-//    const hex = stringToHex(str, { size: 32 })
-//    return pad(hex, { size: 32 }) as `0x${string}`
-//
-
-/**
- * Convert bytes32 from smart contract to string (browser-compatible)
- */
-//export const bytes32ToString = (bytes32Hex: string): string => {
-    // Remove '0x' prefix and trailing zeros
- //   const hex = bytes32Hex.replace('0x', '').replace(/0+$/, '')
-
-//    // Convert hex to string using browser-compatible method
-  //  const bytes = hex.match(/.{1,2}/g)
-//    if (!bytes) return ''
- //   const charCodes = bytes.map(byte => parseInt(byte, 16))
- //   return String.fromCharCode(...charCodes)
-/// }
+export const cidToBytes32 = (cid: string): `0x${string}` => {
+    // stringToHex yields 0x + hex for the UTF-8 string
+    const hex = stringToHex(cid) // e.g. 0x616263...
+    // pad to 32 bytes (64 hex chars) and truncate if longer
+    const padded = pad(hex, { size: 32 }) // returns 0x + 64 hex chars
+    return padded as `0x${string}`
+}
 
 export default {
     initIPFS,
@@ -164,4 +155,5 @@ export default {
     pinToIPFS,
     uploadFileToPinata,
     buildGatewayUrlFromCid,
+    cidToBytes32,
 }

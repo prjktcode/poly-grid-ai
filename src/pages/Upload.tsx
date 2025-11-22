@@ -40,9 +40,7 @@ export default function Upload() {
         isLoading: isConfirming,
         isSuccess: isConfirmed,
         error: txError,
-    } = useWaitForTransactionReceipt({
-        hash: txHash,
-    })
+    } = useWaitForTransactionReceipt({ hash: txHash })
 
     const isBusy = isUploading || isConfirming
 
@@ -80,19 +78,16 @@ export default function Upload() {
             setIsUploading(true)
             setTxHash(undefined)
 
-            // 1) Upload file to Pinata
+            // 1) Upload file to Pinata, get full CID string
             const cid = await uploadFileToPinata(file)
 
-            // 2) Convert CID string to bytes32 for contract storage
-         //   const cidBytes32 = stringToBytes32(cid)
-
-            // 3) Convert price (ETH string) to wei
+            // 2) Convert price (ETH string) to wei
             const priceWei = parseEther(formData.price)
 
-            // 4) Map type to uint8 expected by contract (0 = model, 1 = dataset)
+            // 3) Map type to uint8 expected by contract (0 = model, 1 = dataset)
             const itemType = formData.type === 'model' ? 0 : 1
 
-            // 5) Call listItem on the contract via walletClient
+            // 4) Call listItem(contentCID:string, price:uint256, itemType:uint8)
             const tx = await walletClient.writeContract({
                 address: CONTRACT_ADDRESS as `0x${string}`,
                 abi: CONTRACT_ABI,
@@ -111,15 +106,13 @@ export default function Upload() {
             console.error('Upload/listItem error', error)
             toast({
                 title: 'Upload Failed',
-                description:
-                    error?.shortMessage || error?.message || 'Failed to upload asset or list on-chain',
+                description: error?.shortMessage || error?.message || 'Failed to upload asset or list on-chain',
                 variant: 'destructive',
             })
             setIsUploading(false)
         }
     }
 
-    // Handle transaction error
     useEffect(() => {
         if (txError) {
             console.error('Transaction error', txError)
@@ -132,7 +125,6 @@ export default function Upload() {
         }
     }, [txError])
 
-    // Handle transaction success
     useEffect(() => {
         if (isConfirmed && txHash) {
             toast({
@@ -140,7 +132,6 @@ export default function Upload() {
                 description: 'Your asset has been listed on the marketplace',
             })
 
-            // Reset form
             setFormData({
                 name: '',
                 description: '',
@@ -150,8 +141,6 @@ export default function Upload() {
             })
             setFile(null)
             setIsUploading(false)
-
-            // Navigate to marketplace to see the new listing
             navigate('/marketplace')
         }
     }, [isConfirmed, txHash, navigate])

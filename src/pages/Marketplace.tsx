@@ -1,129 +1,261 @@
+﻿import { useEffect, useMemo, useState } from 'react'
 import { ListingCard, type Listing } from '@/components/ListingCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Filter } from 'lucide-react'
-import { useState } from 'react'
-
-// Mock data - will be replaced with smart contract data
-const mockListings: Listing[] = [
-  {
-    id: 1,
-    name: "GPT-Style Language Model",
-    description: "A transformer-based language model trained on 50B tokens. Excellent for text generation and completion tasks.",
-    type: "model",
-    seller: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
-    price: "0.5",
-    cid: "QmX3fKj7YaWWCj2YPdQMk1LfYHQHqfZfVtqVaHzPxH6Cz7"
-  },
-  {
-    id: 2,
-    name: "Medical Imaging Dataset",
-    description: "10,000+ labeled medical images for disease classification. Includes X-rays and MRI scans.",
-    type: "dataset",
-    seller: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
-    price: "0.3",
-    cid: "QmY4gHj8ZbWXDk3QMk2LfYIRHrfZfVtqWbIaPxI7Dz8"
-  },
-  {
-    id: 3,
-    name: "Computer Vision Model",
-    description: "ResNet-based image classifier trained on ImageNet. 95% accuracy on validation set.",
-    type: "model",
-    seller: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    price: "0.4",
-    cid: "QmZ5hHk9acWXEl4RNk3LgZJSIsfZgWurXcJbQyJ8Ez9"
-  },
-  {
-    id: 4,
-    name: "Sentiment Analysis Dataset",
-    description: "1M+ tweets with sentiment labels. Perfect for NLP training and research.",
-    type: "dataset",
-    seller: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    price: "0.25",
-    cid: "QmW6iIm0cdXYFm5SNl4MgAJTJyfZhWvsYdKbRzK0Fa10"
-  },
-  {
-    id: 5,
-    name: "Speech Recognition Model",
-    description: "State-of-the-art ASR model with 98% accuracy. Supports multiple languages.",
-    type: "model",
-    seller: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-    price: "0.6",
-    cid: "QmX7jJn1deYZGn6TQm5NgBKUKygZiWyKaRzL1Gb11"
-  },
-  {
-    id: 6,
-    name: "Financial Time Series Data",
-    description: "Historical stock data for 5000+ companies spanning 20 years. Perfect for ML training.",
-    type: "dataset",
-    seller: "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
-    price: "0.35",
-    cid: "QmY8kKo2efaZHo7URm6OhCLWnZjXbSzMaRzM2Hc12"
-  }
-]
+import { Search, Filter, RefreshCw } from 'lucide-react'
+import { usePublicClient } from 'wagmi'
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/config/contract'
+import { ethers } from 'ethers' // used for formatEther
 
 export default function Marketplace() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'model' | 'dataset'>('all')
+    const publicClient = usePublicClient()
 
-  const filteredListings = mockListings.filter(listing => {
-    const matchesSearch = listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         listing.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesType = filterType === 'all' || listing.type === filterType
-    return matchesSearch && matchesType
-  })
+    const [searchQuery, setSearchQuery] = useState('')
+    const [filterType, setFilterType] = useState<'all' | 'model' | 'dataset'>('all')
 
-  return (
-    <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">AI Marketplace</h1>
-          <p className="text-muted-foreground text-lg">
-            Discover and purchase AI models and datasets from creators worldwide
-          </p>
-        </div>
+    const [listings, setListings] = useState<Listing[]>([])
+    const [isLoading, setIsLoading] = useState(false)
+    const [loadError, setLoadError] = useState<string | null>(null)
 
-        {/* Search and Filters */}
-        <div className="glass-card p-6 rounded-xl mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search models and datasets..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+    // helper: make an IPFS gateway url for a CID or path
+    const getIpfsUrl = (cid: string) => {
+        if (!cid) return null
+        // Common textual CIDs start with Qm... or bafy...
+        if (cid.startsWith('Qm') || cid.startsWith('bafy')) {
+            return `https://ipfs.io/ipfs/${cid}`
+        }
+        // If it's already a http/https url
+        if (cid.startsWith('http://') || cid.startsWith('https://')) return cid
+        // if it's hex or something else, just return null — handle in UI
+        return `https://ipfs.io/ipfs/${cid}`
+    }
+
+    // optional helper: if you store JSON metadata at IPFS (e.g. name/description/image)
+    // this will try to fetch it and merge into the listing object.
+    async function fetchMetadataFromIpfs(cid: string) {
+        try {
+            const url = getIpfsUrl(cid)
+            if (!url) return null
+            const res = await fetch(url)
+            if (!res.ok) return null
+            const json = await res.json()
+            // Expect typical metadata keys: name, description, image
+            return {
+                name: typeof json.name === 'string' ? json.name : undefined,
+                description: typeof json.description === 'string' ? json.description : undefined,
+                image: typeof json.image === 'string' ? json.image : undefined,
+            }
+        } catch (err) {
+            // don't fail entire load if metadata fetch fails
+            return null
+        }
+    }
+
+    const loadListings = async () => {
+        if (!publicClient) return
+        setIsLoading(true)
+        setLoadError(null)
+
+        try {
+            // 1) Read total listing count (returns bigint)
+            const listingCountBig = (await publicClient.readContract({
+                address: CONTRACT_ADDRESS as `0x${string}`,
+                abi: CONTRACT_ABI,
+                functionName: 'listingCount',
+            })) as bigint
+
+            const listingCount = Number(listingCountBig)
+            if (listingCount === 0) {
+                setListings([])
+                return
+            }
+
+            // Create an array of IDs to fetch: 1..listingCount
+            const ids = Array.from({ length: listingCount }, (_, i) => i + 1)
+
+            // Fetch all getListing calls in parallel (Promise.all)
+            const calls = ids.map((id) =>
+                publicClient.readContract({
+                    address: CONTRACT_ADDRESS as `0x${string}`,
+                    abi: CONTRACT_ABI,
+                    functionName: 'getListing',
+                    args: [BigInt(id)],
+                }).then(
+                    (res) => ({ id, res }),
+                    (err) => ({ id, err }), // capture per-item error
+                ),
+            )
+
+            const results = await Promise.all(calls)
+
+            const nextListings: Listing[] = []
+
+            await Promise.all(
+                results.map(async (entry) => {
+                    const { id } = entry as any
+                    if ((entry as any).err) {
+                        // skip failed individual reads (log)
+                        console.warn(`Failed to read listing ${id}`, (entry as any).err)
+                        return
+                    }
+
+                    // the returned tuple from getListing
+                    const tuple = (entry as any).res as [
+                        string, // contentCID
+                        bigint, // price
+                        string, // seller
+                        bigint, // itemType (could be bigint)
+                        boolean, // active
+                        bigint // timestamp
+                    ]
+
+                    const contentCID = tuple[0] as string
+                    const priceWei = tuple[1] as bigint
+                    const seller = tuple[2] as string
+                    const itemTypeRaw = tuple[3] as any
+                    const active = tuple[4] as boolean
+                    const timestamp = tuple[5] as bigint
+
+                    if (!active) return
+
+                    // normalize itemType to Number
+                    const itemTypeNum = typeof itemTypeRaw === 'bigint' ? Number(itemTypeRaw) : Number(itemTypeRaw)
+
+                    const type: 'model' | 'dataset' = itemTypeNum === 0 ? 'model' : 'dataset'
+
+                    // format price safely using ethers
+                    const priceEth = ethers.formatEther(priceWei).toString()
+
+                    // Try to fetch optional JSON metadata from IPFS (if you store metadata)
+                    // NOTE: this is optional and can be removed for speed.
+                    const meta = await fetchMetadataFromIpfs(contentCID)
+
+                    const name = meta?.name ?? `Listing #${id}`
+                    const description =
+                        meta?.description ??
+                        `On-chain listing created at ${new Date(Number(timestamp) * 1000).toLocaleString()}`
+
+                    // push listing
+                    nextListings.push({
+                        id,
+                        name,
+                        description,
+                        type,
+                        seller,
+                        price: priceEth,
+                        cid: contentCID,
+                        previewUrl: meta?.image ? getIpfsUrl(meta.image) : getIpfsUrl(contentCID),
+                    })
+                }),
+            )
+
+            // optional: sort by newest
+            nextListings.sort((a, b) => b.id - a.id)
+
+            setListings(nextListings)
+        } catch (err: any) {
+            console.error('Error loading listings', err)
+            setLoadError(err?.message ?? 'Failed to load marketplace listings')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Initial load
+    useEffect(() => {
+        void loadListings()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [publicClient])
+
+    const filteredListings = useMemo(() => {
+        const q = searchQuery.toLowerCase()
+        return listings.filter((listing) => {
+            const matchesSearch =
+                (listing.name ?? '').toLowerCase().includes(q) ||
+                (listing.description ?? '').toLowerCase().includes(q) ||
+                (listing.cid ?? '').toLowerCase().includes(q)
+
+            const matchesType = filterType === 'all' || listing.type === filterType
+            return matchesSearch && matchesType
+        })
+    }, [listings, searchQuery, filterType])
+    return (
+        <div className="min-h-screen">
+            <div className="container mx-auto px-4 py-12">
+                {/* Header */}
+                <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-4xl font-bold mb-2">AI Marketplace</h1>
+                        <p className="text-muted-foreground text-lg">
+                            Discover and purchase AI models and datasets from creators worldwide
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        className="inline-flex items-center gap-2"
+                        onClick={() => void loadListings()}
+                        disabled={isLoading}
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                </div>
+
+                {/* Search and Filters */}
+                <div className="glass-card p-6 rounded-xl mb-8">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search models, datasets, or CIDs..."
+                                className="pl-10"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <Select
+                            value={filterType}
+                            onValueChange={(value: 'all' | 'model' | 'dataset') => setFilterType(value)}
+                        >
+                            <SelectTrigger className="w-full md:w-48">
+                                <Filter className="h-4 w-4 mr-2" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="model">Models Only</SelectItem>
+                                <SelectItem value="dataset">Datasets Only</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Error / Empty / Listings */}
+                {loadError && (
+                    <div className="glass-card p-4 rounded-xl mb-6 text-sm text-red-500">
+                        {loadError}
+                    </div>
+                )}
+
+                {isLoading && listings.length === 0 ? (
+                    <div className="glass-card p-12 rounded-xl text-center">
+                        <p className="text-muted-foreground text-lg">Loading listings from the blockchain…</p>
+                    </div>
+                ) : filteredListings.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredListings.map((listing) => (
+                            <ListingCard key={listing.id} listing={listing} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="glass-card p-12 rounded-xl text-center">
+                        <p className="text-muted-foreground text-lg">
+                            No listings found. Try adjusting your search or filters, or upload a new asset.
+                        </p>
+                    </div>
+                )}
             </div>
-            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-              <SelectTrigger className="w-full md:w-48">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="model">Models Only</SelectItem>
-                <SelectItem value="dataset">Datasets Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
-
-        {/* Listings Grid */}
-        {filteredListings.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map(listing => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
-          </div>
-        ) : (
-          <div className="glass-card p-12 rounded-xl text-center">
-            <p className="text-muted-foreground text-lg">No listings found matching your criteria</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+    )
 }
