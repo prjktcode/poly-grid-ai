@@ -42,35 +42,25 @@ export default function Marketplace() {
         return buildGatewayUrlFromCid(cid)
     }
 
+    // optional helper: fetch JSON metadata from IPFS/Pinata
     async function fetchMetadataFromIpfs(cid: string) {
         try {
             const url = getIpfsUrl(cid)
-            if (!url) {
-                console.warn('No URL for CID', cid)
-                return null
-            }
-
-            console.log('Fetching metadata from', url)
+            if (!url) return null
             const res = await fetch(url)
-            if (!res.ok) {
-                console.warn('Metadata fetch failed', cid, res.status)
-                return null
-            }
-
+            if (!res.ok) return null
             const json = await res.json()
-            console.log('Metadata JSON for CID', cid, json)
-
             return {
                 name: typeof json.name === 'string' ? json.name : undefined,
                 description: typeof json.description === 'string' ? json.description : undefined,
                 image: typeof json.image === 'string' ? json.image : undefined,
                 fileCid: typeof json.fileCid === 'string' ? json.fileCid : undefined,
             }
-        } catch (err) {
-            console.warn('Metadata fetch error', cid, err)
+        } catch {
             return null
         }
     }
+
     const loadListings = async () => {
         if (!publicClient) return
         setIsLoading(true)

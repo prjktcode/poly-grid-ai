@@ -232,7 +232,7 @@ export default function Upload() {
                                     <Input
                                         id="price"
                                         type="number"
-                                        step="0.01"
+                                        step="0.0000001"
                                         min="0"
                                         placeholder="0.5"
                                         value={formData.price}
