@@ -2,7 +2,7 @@
 // Update the CONTRACT_ADDRESS after deployment
 
 export const CONTRACT_ADDRESS =
-    import.meta.env.VITE_CONTRACT_ADDRESS || "0x7Cc5aE2b7A27D77dE0Cd9fFD9769b255830DE804";
+    import.meta.env.VITE_CONTRACT_ADDRESS || "0x044818D2501d2f2256E49410A3936D0fBaDf5778";
 
 // Polygon Amoy testnet configuration
 export const POLYGON_AMOY = {

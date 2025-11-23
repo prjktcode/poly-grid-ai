@@ -24,9 +24,9 @@ module.exports = {
     },
     // Sepolia Testnet (backup option)
     sepolia: {
-        url: process.env.SEPOLIA_RPC_URL || "https://unichain-sepolia.drpc.org",
+        url: process.env.SEPOLIA_RPC_URL || "https://0xrpc.io/sep",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 1301,
+      chainId: 11155111,
     },
   },
   paths: {
