@@ -119,6 +119,21 @@ export const uploadFileToPinata = async (file: File): Promise<string> => {
     return cid
 }
 
+export const uploadJsonToPinata = async (metadata: any): Promise<string> => {
+    const jwt = import.meta.env.VITE_PINATA_JWT
+    if (!jwt) {
+        console.error('VITE_PINATA_JWT is not set')
+        throw new Error('Pinata JWT is not configured')
+    }
+
+    const blob = new Blob([JSON.stringify(metadata)], {
+        type: 'application/json',
+    })
+    const file = new File([blob], 'metadata.json', { type: 'application/json' })
+
+    return uploadFileToPinata(file)
+}
+
 /**
  * Build a gateway URL for a CID using Pinata gateway or a default ipfs.io
  */
@@ -154,6 +169,8 @@ export default {
     getIPFSGatewayURL,
     pinToIPFS,
     uploadFileToPinata,
+    uploadJsonToPinata,
     buildGatewayUrlFromCid,
     cidToBytes32,
+    
 }

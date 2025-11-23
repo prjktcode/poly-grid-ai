@@ -15,8 +15,9 @@ import {
     useWaitForTransactionReceipt,
 } from 'wagmi'
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/config/contract'
-import { uploadFileToPinata } from '@/utils/ipfs'
+import { uploadFileToPinata, uploadJsonToPinata } from '@/utils/ipfs'
 import { parseEther } from 'viem'
+
 
 export default function Upload() {
     const navigate = useNavigate()
@@ -78,21 +79,35 @@ export default function Upload() {
             setIsUploading(true)
             setTxHash(undefined)
 
-            // 1) Upload file to Pinata, get full CID string
-            const cid = await uploadFileToPinata(file)
+            // 1) Upload raw file to Pinata
+            const fileCid = await uploadFileToPinata(file)
 
-            // 2) Convert price (ETH string) to wei
+            // 2) Build metadata object including form fields + fileCid
+            const metadata = {
+                name: formData.name,
+                description: formData.description,
+                type: formData.type,
+                price: formData.price,
+                license: formData.license,
+                fileCid,
+                createdAt: new Date().toISOString(),
+            }
+
+            // 3) Upload metadata JSON to Pinata and get metadataCid
+            const metadataCid = await uploadJsonToPinata(metadata)
+
+            // 4) Convert price to wei
             const priceWei = parseEther(formData.price)
 
-            // 3) Map type to uint8 expected by contract (0 = model, 1 = dataset)
+            // 5) Map type
             const itemType = formData.type === 'model' ? 0 : 1
 
-            // 4) Call listItem(contentCID:string, price:uint256, itemType:uint8)
+            // 6) Call listItem with metadataCid
             const tx = await walletClient.writeContract({
                 address: CONTRACT_ADDRESS as `0x${string}`,
                 abi: CONTRACT_ABI,
                 functionName: 'listItem',
-                args: [cid, priceWei, itemType],
+                args: [metadataCid, priceWei, itemType],
                 account: address,
             })
 

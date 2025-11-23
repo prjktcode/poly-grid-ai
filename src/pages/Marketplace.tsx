@@ -7,6 +7,7 @@ import { Search, Filter, RefreshCw } from 'lucide-react'
 import { usePublicClient } from 'wagmi'
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/config/contract'
 import { ethers } from 'ethers' // used for formatEther
+import { buildGatewayUrlFromCid } from '@/utils/ipfs'
 
 export default function Marketplace() {
     const publicClient = usePublicClient()
@@ -23,12 +24,12 @@ export default function Marketplace() {
         if (!cid) return null
         // Common textual CIDs start with Qm... or bafy...
         if (cid.startsWith('Qm') || cid.startsWith('bafy')) {
-            return `https://ipfs.io/ipfs/${cid}`
+            return buildGatewayUrlFromCid(cid)
         }
         // If it's already a http/https url
         if (cid.startsWith('http://') || cid.startsWith('https://')) return cid
         // if it's hex or something else, just return null — handle in UI
-        return `https://ipfs.io/ipfs/${cid}`
+        return buildGatewayUrlFromCid(cid)
     }
 
     // optional helper: if you store JSON metadata at IPFS (e.g. name/description/image)
@@ -45,6 +46,7 @@ export default function Marketplace() {
                 name: typeof json.name === 'string' ? json.name : undefined,
                 description: typeof json.description === 'string' ? json.description : undefined,
                 image: typeof json.image === 'string' ? json.image : undefined,
+                fileCid: typeof json.fileCid === 'string' ? json.fileCid : undefined,
             }
         } catch (err) {
             // don't fail entire load if metadata fetch fails
@@ -111,6 +113,7 @@ export default function Marketplace() {
                     ]
 
                     const contentCID = tuple[0] as string
+                    console.log('Listing contentCID', id, contentCID)
                     const priceWei = tuple[1] as bigint
                     const seller = tuple[2] as string
                     const itemTypeRaw = tuple[3] as any
@@ -128,7 +131,6 @@ export default function Marketplace() {
                     const priceEth = ethers.formatEther(priceWei).toString()
 
                     // Try to fetch optional JSON metadata from IPFS (if you store metadata)
-                    // NOTE: this is optional and can be removed for speed.
                     const meta = await fetchMetadataFromIpfs(contentCID)
 
                     const name = meta?.name ?? `Listing #${id}`
@@ -144,8 +146,8 @@ export default function Marketplace() {
                         type,
                         seller,
                         price: priceEth,
-                        cid: contentCID,
-                        previewUrl: meta?.image ? getIpfsUrl(meta.image) : getIpfsUrl(contentCID),
+                        cid: meta?.fileCid ?? contentCID,
+                        previewUrl: meta?.image ? getIpfsUrl(meta.image) : getIpfsUrl(meta?.fileCid ?? contentCID),
                     })
                 }),
             )
