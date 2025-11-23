@@ -4,13 +4,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Search, Filter, RefreshCw } from 'lucide-react'
-import { usePublicClient } from 'wagmi'
+import { useAccount, usePublicClient, useWalletClient, useWaitForTransactionReceipt } from 'wagmi'
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/config/contract'
 import { ethers } from 'ethers' // used for formatEther
 import { buildGatewayUrlFromCid } from '@/utils/ipfs'
+import { toast } from '@/hooks/use-toast'
+import { parseEther } from 'viem'
 
 export default function Marketplace() {
     const publicClient = usePublicClient()
+    const { address, isConnected } = useAccount()
+    const { data: walletClient } = useWalletClient()
 
     const [searchQuery, setSearchQuery] = useState('')
     const [filterType, setFilterType] = useState<'all' | 'model' | 'dataset'>('all')
@@ -19,21 +23,26 @@ export default function Marketplace() {
     const [isLoading, setIsLoading] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
 
-    // helper: make an IPFS gateway url for a CID or path
+    const [buyTxHash, setBuyTxHash] = useState<`0x${string}` | undefined>(undefined)
+
+    const {
+        isLoading: isBuyConfirming,
+        isSuccess: isBuyConfirmed,
+        error: buyTxError,
+    } = useWaitForTransactionReceipt({
+        hash: buyTxHash,
+    })
+
+    // helper: make an IPFS/Pinata gateway url for a CID or path
     const getIpfsUrl = (cid: string) => {
         if (!cid) return null
-        // Common textual CIDs start with Qm... or bafy...
-        if (cid.startsWith('Qm') || cid.startsWith('bafy')) {
-            return buildGatewayUrlFromCid(cid)
-        }
         // If it's already a http/https url
         if (cid.startsWith('http://') || cid.startsWith('https://')) return cid
-        // if it's hex or something else, just return null — handle in UI
+        // Use Pinata gateway if configured, else ipfs.io
         return buildGatewayUrlFromCid(cid)
     }
 
-    // optional helper: if you store JSON metadata at IPFS (e.g. name/description/image)
-    // this will try to fetch it and merge into the listing object.
+    // optional helper: fetch JSON metadata from IPFS/Pinata
     async function fetchMetadataFromIpfs(cid: string) {
         try {
             const url = getIpfsUrl(cid)
@@ -41,15 +50,13 @@ export default function Marketplace() {
             const res = await fetch(url)
             if (!res.ok) return null
             const json = await res.json()
-            // Expect typical metadata keys: name, description, image
             return {
                 name: typeof json.name === 'string' ? json.name : undefined,
                 description: typeof json.description === 'string' ? json.description : undefined,
                 image: typeof json.image === 'string' ? json.image : undefined,
                 fileCid: typeof json.fileCid === 'string' ? json.fileCid : undefined,
             }
-        } catch (err) {
-            // don't fail entire load if metadata fetch fails
+        } catch {
             return null
         }
     }
@@ -73,20 +80,20 @@ export default function Marketplace() {
                 return
             }
 
-            // Create an array of IDs to fetch: 1..listingCount
             const ids = Array.from({ length: listingCount }, (_, i) => i + 1)
 
-            // Fetch all getListing calls in parallel (Promise.all)
             const calls = ids.map((id) =>
-                publicClient.readContract({
-                    address: CONTRACT_ADDRESS as `0x${string}`,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getListing',
-                    args: [BigInt(id)],
-                }).then(
-                    (res) => ({ id, res }),
-                    (err) => ({ id, err }), // capture per-item error
-                ),
+                publicClient
+                    .readContract({
+                        address: CONTRACT_ADDRESS as `0x${string}`,
+                        abi: CONTRACT_ABI,
+                        functionName: 'getListing',
+                        args: [BigInt(id)],
+                    })
+                    .then(
+                        (res) => ({ id, res }),
+                        (err) => ({ id, err }),
+                    ),
             )
 
             const results = await Promise.all(calls)
@@ -97,23 +104,20 @@ export default function Marketplace() {
                 results.map(async (entry) => {
                     const { id } = entry as any
                     if ((entry as any).err) {
-                        // skip failed individual reads (log)
                         console.warn(`Failed to read listing ${id}`, (entry as any).err)
                         return
                     }
 
-                    // the returned tuple from getListing
                     const tuple = (entry as any).res as [
-                        string, // contentCID
+                        string, // contentCID (metadata CID)
                         bigint, // price
                         string, // seller
-                        bigint, // itemType (could be bigint)
+                        bigint, // itemType
                         boolean, // active
-                        bigint // timestamp
+                        bigint, // timestamp
                     ]
 
                     const contentCID = tuple[0] as string
-                    console.log('Listing contentCID', id, contentCID)
                     const priceWei = tuple[1] as bigint
                     const seller = tuple[2] as string
                     const itemTypeRaw = tuple[3] as any
@@ -122,15 +126,10 @@ export default function Marketplace() {
 
                     if (!active) return
 
-                    // normalize itemType to Number
                     const itemTypeNum = typeof itemTypeRaw === 'bigint' ? Number(itemTypeRaw) : Number(itemTypeRaw)
-
                     const type: 'model' | 'dataset' = itemTypeNum === 0 ? 'model' : 'dataset'
-
-                    // format price safely using ethers
                     const priceEth = ethers.formatEther(priceWei).toString()
 
-                    // Try to fetch optional JSON metadata from IPFS (if you store metadata)
                     const meta = await fetchMetadataFromIpfs(contentCID)
 
                     const name = meta?.name ?? `Listing #${id}`
@@ -138,7 +137,8 @@ export default function Marketplace() {
                         meta?.description ??
                         `On-chain listing created at ${new Date(Number(timestamp) * 1000).toLocaleString()}`
 
-                    // push listing
+                    const assetCid = meta?.fileCid ?? contentCID
+
                     nextListings.push({
                         id,
                         name,
@@ -146,15 +146,12 @@ export default function Marketplace() {
                         type,
                         seller,
                         price: priceEth,
-                        cid: meta?.fileCid ?? contentCID,
-                        previewUrl: meta?.image ? getIpfsUrl(meta.image) : getIpfsUrl(meta?.fileCid ?? contentCID),
+                        cid: assetCid,
                     })
                 }),
             )
 
-            // optional: sort by newest
             nextListings.sort((a, b) => b.id - a.id)
-
             setListings(nextListings)
         } catch (err: any) {
             console.error('Error loading listings', err)
@@ -163,6 +160,30 @@ export default function Marketplace() {
             setIsLoading(false)
         }
     }
+
+    // Handle buy transaction error
+    useEffect(() => {
+        if (buyTxError) {
+            console.error('Buy transaction error', buyTxError)
+            toast({
+                title: 'Purchase Failed',
+                description: buyTxError.message ?? 'The purchase transaction failed or was reverted',
+                variant: 'destructive',
+            })
+        }
+    }, [buyTxError])
+
+    // Handle buy transaction success
+    useEffect(() => {
+        if (isBuyConfirmed && buyTxHash) {
+            toast({
+                title: 'Purchase Successful 🎉',
+                description: 'You have successfully purchased this asset.',
+            })
+            setBuyTxHash(undefined)
+            void loadListings() // refresh to hide inactive listing
+        }
+    }, [isBuyConfirmed, buyTxHash])
 
     // Initial load
     useEffect(() => {
@@ -182,6 +203,56 @@ export default function Marketplace() {
             return matchesSearch && matchesType
         })
     }, [listings, searchQuery, filterType])
+
+    const handleBuy = async (id: number) => {
+        if (!isConnected || !address || !walletClient) {
+            toast({
+                title: 'Wallet Not Connected',
+                description: 'Please connect your wallet to buy assets',
+                variant: 'destructive',
+            })
+            return
+        }
+
+        const listing = listings.find((l) => l.id === id)
+        if (!listing) {
+            toast({
+                title: 'Listing Not Found',
+                description: 'Unable to find this listing in the current view.',
+                variant: 'destructive',
+            })
+            return
+        }
+
+        try {
+            // Parse price (ETH string) to wei
+            const value = parseEther(listing.price)
+
+            const txHash = await walletClient.writeContract({
+                address: CONTRACT_ADDRESS as `0x${string}`,
+                abi: CONTRACT_ABI,
+                functionName: 'buyItem',
+                args: [BigInt(id)],
+                account: address,
+                value,
+            })
+
+            setBuyTxHash(txHash)
+
+            toast({
+                title: 'Purchase Submitted',
+                description: 'Please wait for confirmation on-chain…',
+            })
+        } catch (error: any) {
+            console.error('buyItem error', error)
+            toast({
+                title: 'Purchase Failed',
+                description: error?.shortMessage || error?.message || 'Failed to purchase this asset',
+                variant: 'destructive',
+            })
+        }
+    }
+
     return (
         <div className="min-h-screen">
             <div className="container mx-auto px-4 py-12">
@@ -247,7 +318,7 @@ export default function Marketplace() {
                 ) : filteredListings.length > 0 ? (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredListings.map((listing) => (
-                            <ListingCard key={listing.id} listing={listing} />
+                            <ListingCard key={listing.id} listing={listing} onBuy={handleBuy} />
                         ))}
                     </div>
                 ) : (

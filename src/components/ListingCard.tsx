@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+﻿import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Brain, Database as DatabaseIcon, ShoppingCart, ExternalLink } from 'lucide-react'
@@ -20,16 +20,16 @@ interface ListingCardProps {
 }
 
 export function ListingCard({ listing, onBuy }: ListingCardProps) {
-  const handleBuy = () => {
-    if (onBuy) {
-      onBuy(listing.id)
-    } else {
-      toast({
-        title: "Coming Soon",
-        description: "Purchase functionality will be available once you connect your wallet and the smart contract is deployed.",
-      })
+    const handleBuy = () => {
+        if (onBuy) {
+            onBuy(listing.id)
+        } else {
+            toast({
+                title: 'Connect Wallet',
+                description: 'Please connect your wallet to buy this asset.',
+            })
+        }
     }
-  }
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`
