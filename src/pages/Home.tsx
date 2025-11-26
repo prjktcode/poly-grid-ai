@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+﻿import { Button } from '@/components/ui/button'
 import { Brain, Database as DatabaseIcon, Shield, Zap, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import heroBg from '@/assets/hero-bg.jpg'
@@ -19,7 +19,7 @@ export default function Home() {
         <div className="relative max-w-4xl mx-auto text-center space-y-8 z-10">
           <div className="inline-flex items-center gap-2 glass-card px-4 py-2 rounded-full text-sm">
             <Zap className="h-4 w-4 text-accent" />
-            <span>Powered by Ethereum Sepolia</span>
+            <span>Powered by Polygon Amoy</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold leading-tight">

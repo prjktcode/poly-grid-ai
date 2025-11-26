@@ -2,7 +2,7 @@
 // Update the CONTRACT_ADDRESS after deployment
 
 export const CONTRACT_ADDRESS =
-    import.meta.env.VITE_CONTRACT_ADDRESS || "0x044818D2501d2f2256E49410A3936D0fBaDf5778";
+    import.meta.env.VITE_CONTRACT_ADDRESS || "0xd764E07bbbf3863060aCca9622e2c81ef1Eafa77";
 
 // Polygon Amoy testnet configuration
 export const POLYGON_AMOY = {
@@ -11,8 +11,8 @@ export const POLYGON_AMOY = {
   network: 'amoy',
   nativeCurrency: {
     decimals: 18,
-    name: 'MATIC',
-    symbol: 'MATIC',
+    name: 'POL',
+    symbol: 'POL',
   },
   rpcUrls: {
     default: {
