@@ -228,7 +228,7 @@ export default function Upload() {
 
                                 {/* Price */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="price">Price (ETH) *</Label>
+                                    <Label htmlFor="price">Price (POL) *</Label>
                                     <Input
                                         id="price"
                                         type="number"
