@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 require("@nomicfoundation/hardhat-toolbox");
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -16,6 +16,12 @@ module.exports = {
     hardhat: {
       chainId: 31337,
     },
+    // Polygon Mainnet
+    polygon: {
+      url: process.env.POLYGON_RPC_URL || "https://polygon-rpc.com",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 137,
+    },
     // Polygon Amoy Testnet
     amoy: {
       url: process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology/",
@@ -24,7 +30,7 @@ module.exports = {
     },
     // Sepolia Testnet (backup option)
     sepolia: {
-        url: process.env.SEPOLIA_RPC_URL || "https://0xrpc.io/sep",
+      url: process.env.SEPOLIA_RPC_URL || "https://0xrpc.io/sep",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
     },
@@ -37,6 +43,7 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
+      polygon: process.env.POLYGONSCAN_API_KEY || "",
       polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",
       sepolia: process.env.ETHERSCAN_API_KEY || "",
     },
